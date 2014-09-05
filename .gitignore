@@ -1,0 +1,8 @@
+bin/driver-go-sonos
+./driver-go-sonos
+sphere-serial
+sphere-config
+.gopath/*
+pkg/
+.AppleDouble
+.DS_Store

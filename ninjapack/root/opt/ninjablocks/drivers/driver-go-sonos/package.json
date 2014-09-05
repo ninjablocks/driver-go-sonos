@@ -1,0 +1,10 @@
+{
+  "name": "driver-sonos",
+  "version": "0.1.0",
+  "description": "Ninja Sphere - SONOS Driver",
+  "main": "driver-go-sonos",
+  "author": "Mark Wolfe <mark.wolfe@ninjablocks.com>",
+  "license": "MIT",
+  "topics": {},
+  "maxMemory": 10
+}
