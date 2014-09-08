@@ -1,4 +1,4 @@
-#Ninja Sphere GoLang SONOS Driver
+#Ninja Sphere Go SONOS Driver
 
 This driver is currently using [go-sonos](https://github.com/ianr0bkny/go-sonos).
 

@@ -5,11 +5,19 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/davecgh/go-spew/spew"
+	sonos "github.com/ianr0bkny/go-sonos"
 	"github.com/ninjasphere/go-ninja"
 	"github.com/ninjasphere/go-ninja/logger"
 )
 
 const driverName = "driver-sonos"
+
+const (
+	DiscoveryPort    = "13104"
+	EventingPort     = "13105"
+	NetworkInterface = "wlan0"
+)
 
 var log = logger.GetLogger(driverName)
 
@@ -35,6 +43,22 @@ func main() {
 	}
 
 	statusJob.Start()
+
+	mgr, err := sonos.Discover(NetworkInterface, DiscoveryPort)
+
+	if err != nil {
+		log.HandleError(err, "Could not configure ssdp manager")
+	}
+
+	reactor := sonos.MakeReactor(NetworkInterface, EventingPort)
+
+	if err != nil {
+		log.HandleError(err, "Could not configure reactor")
+	}
+
+	sonosUnits := sonos.ConnectAny(mgr, reactor, sonos.SVC_CONTENT_DIRECTORY|sonos.SVC_AV_TRANSPORT|sonos.SVC_RENDERING_CONTROL)
+
+	log.Infof(spew.Sprintf("found sonos units %v", sonosUnits))
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
