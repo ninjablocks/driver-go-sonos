@@ -27,37 +27,6 @@ type sonosPlayer struct {
 	player *devices.MediaPlayerDevice
 }
 
-func (sp *sonosPlayer) applyTogglePlay() error {
-
-	sp.log.Infof("togglePlay called")
-
-	// get the state of the player now
-	info, err := sp.GetTransportInfo(defaultInstanceID)
-
-	if err != nil {
-		return err
-	}
-
-	if info.CurrentTransportState == "STOPPED" || info.CurrentTransportState == "PAUSED_PLAYBACK" {
-
-		err := sp.Play(defaultInstanceID, defaultSpeed)
-
-		if err != nil {
-			return err
-		}
-
-		return sp.player.UpdateControlState(channels.MediaControlEventPlaying)
-	}
-
-	err = sp.Pause(defaultInstanceID)
-
-	if err != nil {
-		return err
-	}
-
-	return sp.player.UpdateControlState(channels.MediaControlEventStopped)
-}
-
 func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	sp.log.Infof("applyPlayPause called, playing: %s", playing)
@@ -127,89 +96,13 @@ func (sp *sonosPlayer) applyMuted(muted bool) error {
 	return sp.player.UpdateMutedState(muted)
 }
 
-func (sp *sonosPlayer) applyToggleMuted() error {
-
-	// get the state of the player now
-	muted, err := sp.GetMute(defaultInstanceID, upnp.Channel_Master)
-
-	if err != nil {
-		return err
-	}
-
-	if muted {
-		err := sp.SetMute(defaultInstanceID, upnp.Channel_Master, false)
-		if err != nil {
-			return err
-		}
-
-		return sp.player.UpdateMutedState(false)
-	}
-
-	err = sp.SetMute(defaultInstanceID, upnp.Channel_Master, true)
-
-	if err != nil {
-		return err
-	}
-	return sp.player.UpdateMutedState(true)
-}
-
-// applyVolumeDown Decreases the volume by 5%
-func (sp *sonosPlayer) applyVolumeDown() error {
-
-	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
-
-	if err != nil {
-		return err
-	}
-
-	if vol > volumeIncrement {
-		vol -= volumeIncrement
-	} else {
-		vol = 0
-	}
-
-	err = sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
-
-	if err != nil {
-		return err
-	}
-
-	return sp.player.UpdateVolumeState(float64(vol) / float64(math.MaxUint16))
-}
-
-// applyVolumeUp Increases the volume by 5%
-func (sp *sonosPlayer) applyVolumeUp() error {
-	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
-
-	if err != nil {
-		return err
-	}
-
-	if vol < (math.MaxUint16 - volumeIncrement) {
-		vol += volumeIncrement
-	} else {
-		vol = math.MaxUint16
-	}
-
-	err = sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
-
-	if err != nil {
-		return err
-	}
-
-	return sp.player.UpdateVolumeState(float64(vol) / float64(math.MaxUint16))
-}
-
 func (sp *sonosPlayer) bindMethods() {
-	sp.player.ApplyTogglePlay = sp.applyTogglePlay
+
 	sp.player.ApplyPlayPause = sp.applyPlayPause
 	sp.player.ApplyStop = sp.applyStop
 	sp.player.ApplyPlaylistJump = sp.applyPlaylistJump
 	sp.player.ApplyVolume = sp.applyVolume
 	sp.player.ApplyMuted = sp.applyMuted
-	sp.player.ApplyToggleMuted = sp.applyToggleMuted
-	sp.player.ApplyVolumeDown = sp.applyVolumeDown
-	sp.player.ApplyVolumeUp = sp.applyVolumeUp
 
 	sp.player.EnableControlChannel([]string{
 		"playing",
