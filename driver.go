@@ -36,7 +36,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	}
 
-	err = sp.Pause(defaultInstanceID)
+	err := sp.Pause(defaultInstanceID)
 
 	if err != nil {
 		return err
