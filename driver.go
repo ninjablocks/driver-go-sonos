@@ -69,7 +69,7 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 	if delta < defaultInstanceID {
 		return sp.Previous(defaultInstanceID)
 	}
-	return sp.NextSection(defaultInstanceID)
+	return sp.Next(defaultInstanceID)
 }
 
 func (sp *sonosPlayer) applyVolume(volume float64) error {
