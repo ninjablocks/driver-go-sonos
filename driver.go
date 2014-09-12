@@ -29,11 +29,10 @@ type sonosPlayer struct {
 
 func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
-	sp.log.Infof("applyPlayPause called, playing: %s", playing)
+	sp.log.Infof("applyPlayPause called, playing: %t", playing)
 
 	if playing {
-
-		err := sp.Pause(defaultInstanceID)
+		err := sp.Play(defaultInstanceID, defaultSpeed)
 
 		if err != nil {
 			return err
@@ -43,7 +42,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	}
 
-	err := sp.Play(defaultInstanceID, defaultSpeed)
+	err := sp.Pause(defaultInstanceID)
 
 	if err != nil {
 		return err
@@ -110,6 +109,8 @@ func (sp *sonosPlayer) bindMethods() {
 		"stopped",
 		"idle",
 	})
+
+	sp.player.EnableVolumeChannel()
 }
 
 func NewPlayer(bus *ninja.DriverBus, sonosUnit *sonos.Sonos) (*sonosPlayer, error) {
