@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 
@@ -16,17 +17,22 @@ import (
 const driverName = "driver-sonos"
 
 const (
-	DiscoveryPort    = "13104"
-	EventingPort     = "13105"
-	NetworkInterface = "wlan0"
+	DiscoveryPort = "13104"
+	EventingPort  = "13105"
 )
 
 var nlog = logger.GetLogger(driverName)
 
 func detectZP() (zonePlayers ssdp.DeviceMap, err error) {
 
+	intName, err := GetInterface()
+
+	if nil != err {
+		return
+	}
+
 	nlog.Infof("loading discovery mgr")
-	mgr, err := sonos.Discover(NetworkInterface, DiscoveryPort)
+	mgr, err := sonos.Discover(intName, DiscoveryPort)
 	if nil != err {
 		return
 	}
@@ -37,6 +43,37 @@ func detectZP() (zonePlayers ssdp.DeviceMap, err error) {
 			zonePlayers[uuid] = device
 		}
 	}
+	return
+}
+
+func GetInterface() (intName string, err error) {
+
+	ifaces, err := net.Interfaces()
+
+	if err != nil {
+		fmt.Errorf("Failed to get interfaces: %s", err)
+		return
+	}
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			fmt.Errorf("Failed to get addresses: %s", err)
+			return "", err
+		}
+		for _, addr := range addrs {
+			switch v := addr.(type) {
+			case *net.IPNet:
+				if addr.String() != "127.0.0.1/8" && addr.String() != "::1/128" {
+					intName = i.Name
+				}
+			default:
+				fmt.Printf("unexpected type %T val %v", v, v)
+			}
+
+		}
+	}
+
 	return
 }
 
@@ -64,14 +101,14 @@ func main() {
 
 	statusJob.Start()
 
-	nlog.Infof("loading reactor")
-	reactor := sonos.MakeReactor(NetworkInterface, EventingPort)
+	intName, err := GetInterface()
 
-	// debugging the underlying library
-	// go func() {
-	// 	time.Sleep(30 * time.Second)
-	// 	panic("oops")
-	// }()
+	if nil != err {
+		nlog.HandleError(err, "Could not locate interface to bind to")
+	}
+
+	nlog.Infof("loading reactor")
+	reactor := sonos.MakeReactor(intName, EventingPort)
 
 	zonePlayers, err := detectZP()
 	if err != nil {
