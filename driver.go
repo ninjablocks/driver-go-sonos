@@ -1,8 +1,6 @@
 package main
 
 import (
-	"math"
-
 	"github.com/bitly/go-simplejson"
 	"github.com/ninjasphere/go-ninja"
 	"github.com/ninjasphere/go-ninja/channels"
@@ -17,10 +15,6 @@ const (
 	defaultSpeed      = "1"
 )
 
-var (
-	volumeIncrement = uint16(math.Floor(math.MaxUint16 * 0.05))
-)
-
 type sonosPlayer struct {
 	*sonos.Sonos
 	log    *logger.Logger
@@ -30,6 +24,14 @@ type sonosPlayer struct {
 func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	sp.log.Infof("applyPlayPause called, playing: %t", playing)
+
+	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
+
+	if err != nil {
+		return err
+	}
+
+	sp.log.Infof("volue is %d", vol)
 
 	if playing {
 		err := sp.Play(defaultInstanceID, defaultSpeed)
@@ -42,7 +44,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	}
 
-	err := sp.Pause(defaultInstanceID)
+	err = sp.Pause(defaultInstanceID)
 
 	if err != nil {
 		return err
@@ -65,7 +67,7 @@ func (sp *sonosPlayer) applyStop() error {
 
 func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 	sp.log.Infof("applyPlaylistJump called, delta : %d", delta)
-	if delta < defaultInstanceID {
+	if delta < 0 {
 		return sp.Previous(defaultInstanceID)
 	}
 	return sp.Next(defaultInstanceID)
@@ -74,7 +76,7 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 func (sp *sonosPlayer) applyVolume(volume float64) error {
 	sp.log.Infof("applyVolume called, volume %f", volume)
 
-	vol := uint16(volume * math.MaxUint16)
+	vol := uint16(volume * 100)
 
 	err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
 
@@ -113,6 +115,38 @@ func (sp *sonosPlayer) bindMethods() {
 	sp.player.EnableVolumeChannel()
 }
 
+func (sp *sonosPlayer) updateState() error {
+
+	muted, err := sp.GetMute(defaultInstanceID, upnp.Channel_Master)
+
+	if err != nil {
+		return err
+	}
+
+	nlog.Infof("UpdateMutedState %t", muted)
+	if sp.player.UpdateMutedState(muted); err != nil {
+		return err
+	}
+
+	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
+
+	if err != nil {
+		return err
+	}
+
+	var volume float64
+
+	if vol > 0 {
+		volume = float64(vol) / 100
+	} else {
+		volume = float64(0)
+
+	}
+
+	nlog.Infof("UpdateVolumeState %d  %f", vol, volume)
+	return sp.player.UpdateVolumeState(volume)
+}
+
 func NewPlayer(bus *ninja.DriverBus, sonosUnit *sonos.Sonos) (*sonosPlayer, error) {
 
 	group, _ := sonosUnit.GetZoneGroupAttributes()
@@ -143,6 +177,12 @@ func NewPlayer(bus *ninja.DriverBus, sonosUnit *sonos.Sonos) (*sonosPlayer, erro
 	sp := &sonosPlayer{sonosUnit, logger.GetLogger("sonosPlayer"), player}
 
 	sp.bindMethods()
+
+	err = sp.updateState()
+
+	if err != nil {
+		nlog.FatalError(err, "Failed to create media player device bus")
+	}
 
 	return sp, nil
 }

@@ -122,12 +122,12 @@ func main() {
 
 		unit := sonos.Connect(player, reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
 
-		dev, err := NewPlayer(bus, unit)
+		_, err := NewPlayer(bus, unit)
 		if err != nil {
 			nlog.HandleError(err, "failed to register media player")
 		}
 
-		nlog.Infof(spew.Sprintf("created media player device %v", dev))
+		nlog.Infof("created media player device %s %s", player.UUID(), player.Name())
 	}
 
 	c := make(chan os.Signal, 1)
