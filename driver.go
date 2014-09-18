@@ -270,7 +270,7 @@ func NewPlayer(bus *ninja.DriverBus, sonosUnit *sonos.Sonos) (*sonosPlayer, erro
 			"ninja:thingType": "MediaPlayer"
 	}`))
 
-	deviceBus, err := bus.AnnounceDevice(id, "media-player", name, sigs)
+	deviceBus, err := bus.AnnounceDevice(id, "sonos", name, sigs)
 	if err != nil {
 		nlog.FatalError(err, "Failed to create media player device bus")
 	}
