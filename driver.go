@@ -31,14 +31,6 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	sp.log.Infof("applyPlayPause called, playing: %t", playing)
 
-	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
-
-	if err != nil {
-		return err
-	}
-
-	sp.log.Infof("volue is %d", vol)
-
 	if playing {
 		err := sp.Play(defaultInstanceID, defaultSpeed)
 
@@ -50,7 +42,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 
 	}
 
-	err = sp.Pause(defaultInstanceID)
+	err := sp.Pause(defaultInstanceID)
 
 	if err != nil {
 		return err
