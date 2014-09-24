@@ -1,7 +1,8 @@
 {
-  "name": "driver-sonos",
+  "id": "com.ninjablocks.sonos",
+  "name": "Sonos Driver",
   "version": "0.1.0",
-  "description": "Ninja Sphere - SONOS Driver",
+  "description": "Connects to any Sonos systems on the network, and exposes them as devices with on-off, media, media-control and volume channels",
   "main": "driver-go-sonos",
   "author": "Mark Wolfe <mark.wolfe@ninjablocks.com>",
   "license": "MIT",
