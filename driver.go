@@ -12,6 +12,7 @@ import (
 	"github.com/ninjasphere/go-ninja/rpc"
 	"github.com/ninjasphere/go-sonos"
 	"github.com/ninjasphere/go-sonos/ssdp"
+	"github.com/ninjasphere/go-sonos/upnp"
 )
 
 const discoveryInterval = time.Second * 20
@@ -23,6 +24,7 @@ type sonosDriver struct {
 	log       *logger.Logger
 	players   map[ssdp.UUID]*sonosPlayer
 	conn      *ninja.Connection
+	reactor   upnp.Reactor
 	sendEvent func(event string, payload interface{}) error
 }
 
@@ -45,6 +47,14 @@ func StartSonosDriver() {
 	if err != nil {
 		d.log.Fatalf("Failed to export driver: %s", err)
 	}
+
+	intName, err := GetInterface()
+
+	if nil != err {
+		nlog.HandleError(err, "Could not locate interface to bind to")
+	}
+
+	d.reactor = sonos.MakeReactor(intName, EventingPort)
 
 	d.conn = conn
 }
@@ -70,6 +80,16 @@ func (d *sonosDriver) discover() {
 		for uuid, device := range zonePlayers {
 			if _, ok := d.players[uuid]; !ok {
 				d.log.Infof("Found a new Sonos ZonePlayer: %v", device)
+
+				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
+
+				player, err := NewPlayer(d, d.conn, unit)
+
+				if err != nil {
+
+				} else {
+					d.players[uuid] = player
+				}
 
 			}
 		}
