@@ -264,9 +264,9 @@ func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Son
 	nlog.Infof("Making media player with ID: %s Label: %s", id, name)
 
 	player, err := devices.CreateMediaPlayerDevice(driver, &model.Device{
-		ID:     id,
-		IDType: "sonos",
-		Name:   &name,
+		NaturalID:     id,
+		NaturalIDType: "sonos",
+		Name:          &name,
 		Signatures: &map[string]string{
 			"ninja:manufacturer": "Sonos",
 			"ninja:productName":  "Sonos Player",

@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ninjasphere/go-ninja/api"
 	"github.com/ninjasphere/go-ninja/logger"
 	"github.com/ninjasphere/go-ninja/model"
-	"github.com/ninjasphere/go-ninja/rpc"
 	"github.com/ninjasphere/go-sonos"
 	"github.com/ninjasphere/go-sonos/ssdp"
 	"github.com/ninjasphere/go-sonos/upnp"
@@ -55,13 +55,13 @@ func StartSonosDriver() {
 	d.conn = conn
 }
 
-func (d *sonosDriver) Start(message *rpc.Message, config *SonosConfig) error {
+func (d *sonosDriver) Start(config *SonosConfig) error {
 	d.log.Infof("Starting")
 	go d.discover()
 	return nil
 }
 
-func (d *sonosDriver) Stop(message *rpc.Message) error {
+func (d *sonosDriver) Stop() error {
 	// TODO: Doesn't aactually stop the devices? Should it?
 	return nil
 }
@@ -75,8 +75,10 @@ func (d *sonosDriver) discover() {
 	} else {
 		for uuid, device := range zonePlayers {
 			if _, ok := d.players[uuid]; !ok {
-
+				spew.Dump(device)
 				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
+				spew.Dump(unit)
+
 				player, err := NewPlayer(d, d.conn, unit)
 
 				if err != nil {
