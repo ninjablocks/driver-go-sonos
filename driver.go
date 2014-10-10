@@ -52,6 +52,18 @@ func StartSonosDriver() {
 
 	d.reactor = sonos.MakeReactor(EventingPort)
 
+	go func() {
+		events := d.reactor.Channel()
+
+		for {
+			event := <-events
+
+			d.log.Infof(spew.Sprintf("event %v", event))
+
+			// TODO need to emit state once we get the event which contains player status
+		}
+	}()
+
 	d.conn = conn
 }
 
