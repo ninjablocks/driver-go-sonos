@@ -76,6 +76,9 @@ func (sp *sonosPlayer) applyVolume(volume float64) error {
 
 	vol := uint16(volume * 100)
 
+	// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
+	vol = vol / 2
+
 	err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
 
 	if err != nil {
