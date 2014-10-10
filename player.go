@@ -274,7 +274,7 @@ func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Son
 			"ninja:manufacturer": "Sonos",
 			"ninja:productName":  "Sonos Player",
 			"ninja:productType":  "MediaPlayer",
-			"ninja:thingType":    "MediaPlayer",
+			"ninja:thingType":    "mediaplayer",
 		},
 	}, conn)
 
