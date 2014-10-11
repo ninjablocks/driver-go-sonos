@@ -87,9 +87,9 @@ func (d *sonosDriver) discover() {
 	} else {
 		for uuid, device := range zonePlayers {
 			if _, ok := d.players[uuid]; !ok {
-				spew.Dump(device)
+				// spew.Dump(device)
 				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
-				spew.Dump(unit)
+				//spew.Dump(unit)
 
 				player, err := NewPlayer(d, d.conn, unit)
 
