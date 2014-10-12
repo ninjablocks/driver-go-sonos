@@ -38,7 +38,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 			return err
 		}
 
-		return sp.player.UpdateControlState(channels.MediaControlEventPaused)
+		return sp.player.UpdateControlState(channels.MediaControlEventPlaying)
 
 	}
 
@@ -48,7 +48,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 		return err
 	}
 
-	return sp.player.UpdateControlState(channels.MediaControlEventPlaying)
+	return sp.player.UpdateControlState(channels.MediaControlEventPaused)
 }
 
 func (sp *sonosPlayer) applyStop() error {
