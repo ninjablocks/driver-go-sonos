@@ -11,7 +11,7 @@ import (
 var debug = logger.GetLogger("").Warningf
 
 func init() {
-	logger.GetLogger("").SetLogLevel(loggo.DEBUG)
+	logger.GetLogger("").SetLogLevel(loggo.INFO)
 
 	bugsnag.Configure(bugsnag.Configuration{
 		APIKey:       "1548235564b07e5e70bfc794db0cedc9",

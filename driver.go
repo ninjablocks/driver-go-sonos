@@ -55,10 +55,15 @@ func StartSonosDriver() {
 	go func() {
 		events := d.reactor.Channel()
 
+		d.log.Infof("waiting for events.")
+
 		for {
 			event := <-events
 
+			// this thing is massive
 			d.log.Infof(spew.Sprintf("event %v", event))
+
+			//spew.Dump(event)
 
 			// TODO need to emit state once we get the event which contains player status
 		}
@@ -87,9 +92,31 @@ func (d *sonosDriver) discover() {
 	} else {
 		for uuid, device := range zonePlayers {
 			if _, ok := d.players[uuid]; !ok {
-				// spew.Dump(device)
+
+				//spew.Dump(device)
+
+				device.Service("schemas-upnp-org-MusicServices")
+
 				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
 				//spew.Dump(unit)
+
+				err = d.reactor.Subscribe(unit.AVTransport.Svc, &upnp.AVTransport{})
+
+				if err != nil {
+					d.log.Errorf(spew.Sprintf("err : %v", err))
+				}
+
+				err = d.reactor.Subscribe(unit.MusicServices.Svc, &upnp.MusicServices{})
+
+				if err != nil {
+					d.log.Errorf(spew.Sprintf("err : %v", err))
+				}
+
+				err = d.reactor.Subscribe(unit.RenderingControl.Svc, &upnp.RenderingControl{})
+
+				if err != nil {
+					d.log.Errorf(spew.Sprintf("err : %v", err))
+				}
 
 				player, err := NewPlayer(d, d.conn, unit)
 
@@ -109,6 +136,7 @@ func (d *sonosDriver) discoverZonePlayers() (zonePlayers ssdp.DeviceMap, err err
 
 	d.log.Infof("loading discovery mgr")
 	mgr, err := sonos.Discover(DiscoveryPort)
+
 	if nil != err {
 		return
 	}
@@ -119,6 +147,7 @@ func (d *sonosDriver) discoverZonePlayers() (zonePlayers ssdp.DeviceMap, err err
 			zonePlayers[uuid] = device
 		}
 	}
+
 	return
 }
 

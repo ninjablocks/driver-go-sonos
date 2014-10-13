@@ -191,16 +191,8 @@ func (sp *sonosPlayer) updateMedia() error {
 	//sp.log.Infof(spew.Sdump("DIDL", trackMetadata))
 
 	track := &channels.MusicTrackMediaItem{
-		ID:    &positionInfo.TrackURI,
-		Title: &trackMetadata.Item[0].Title[0].Value,
-		// Album: &channels.MediaItemAlbum{
-		// 	Name: trackMetadata.Item[0].Album[0].Value,
-		// },
-		// Artists: &[]channels.MediaItemArtist{
-		// 	channels.MediaItemArtist{
-		// 		Name: trackMetadata.Item[0].Creator[0].Value,
-		// 	},
-		// },
+		ID:       &positionInfo.TrackURI,
+		Title:    &trackMetadata.Item[0].Title[0].Value,
 		Duration: &durationMs,
 	}
 
@@ -228,13 +220,6 @@ func (sp *sonosPlayer) updateMedia() error {
 
 func (sp *sonosPlayer) updateState() error {
 
-	/*mediaInfo, err := sp.GetMediaInfo(defaultInstanceID)
-
-	  if err != nil {
-	    return err
-	  }*/
-
-	//func (d *MediaPlayerDevice) UpdateMusicMediaState(item *MusicTrackMediaItem, position *int) error {
 	err := sp.updateMedia()
 
 	if err != nil {
