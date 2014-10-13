@@ -192,22 +192,30 @@ func (sp *sonosPlayer) updateMedia() error {
 
 	track := &channels.MusicTrackMediaItem{
 		ID:       &positionInfo.TrackURI,
-		Title:    &trackMetadata.Item[0].Title[0].Value,
 		Duration: &durationMs,
 	}
 
-	if trackMetadata.Item[0].Album != nil {
-		track.Album = &channels.MediaItemAlbum{
-			Name: trackMetadata.Item[0].Album[0].Value,
-		}
-	}
+	if len(trackMetadata.Item) > 0 {
+		item := trackMetadata.Item[0]
 
-	if trackMetadata.Item[0].Creator != nil {
-		track.Artists = &[]channels.MediaItemArtist{
-			channels.MediaItemArtist{
-				Name: trackMetadata.Item[0].Creator[0].Value,
-			},
+		if len(item.Title) > 0 {
+			track.Title = &item.Title[0].Value
 		}
+
+		if len(item.Album) > 0 {
+			track.Album = &channels.MediaItemAlbum{
+				Name: item.Album[0].Value,
+			}
+		}
+
+		if len(item.Creator) > 0 {
+			track.Artists = &[]channels.MediaItemArtist{
+				channels.MediaItemArtist{
+					Name: item.Creator[0].Value,
+				},
+			}
+		}
+
 	}
 
 	err = sp.player.UpdateMusicMediaState(track, &positionMs)
