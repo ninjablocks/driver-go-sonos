@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ninjasphere/go-ninja/api"
 	"github.com/ninjasphere/go-ninja/logger"
 	"github.com/ninjasphere/go-ninja/model"
@@ -58,14 +57,26 @@ func StartSonosDriver() {
 		d.log.Infof("waiting for events.")
 
 		for {
-			event := <-events
+			_ = <-events
 
-			// this thing is massive
-			d.log.Infof(spew.Sprintf("event %v", event))
+			// because event is a big ball of string it is easier to just iterate over all players
+			// and update them all when an event occurs
+			for id := range d.players {
+				d.log.Infof("Updating %s", %s)
+				d.players[id].updateState()
+			}
+
+			// spew.Dump(event)
+
+			// switch v := event.(type) {
+			// case upnp.RenderingControlEvent:
+			// 	d.log.Infof(spew.Sprintf("Volume %v", v.LastChange.InstanceID.Volume))
+			// case upnp.AVTransportEvent:
+			// 	d.log.Infof(spew.Sprintf("TransportState %v", v.LastChange.InstanceID.TransportState))
+			// }
 
 			//spew.Dump(event)
 
-			// TODO need to emit state once we get the event which contains player status
 		}
 	}()
 
@@ -95,28 +106,8 @@ func (d *sonosDriver) discover() {
 
 				//spew.Dump(device)
 
-				device.Service("schemas-upnp-org-MusicServices")
-
 				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
 				//spew.Dump(unit)
-
-				err = d.reactor.Subscribe(unit.AVTransport.Svc, &upnp.AVTransport{})
-
-				if err != nil {
-					d.log.Errorf(spew.Sprintf("err : %v", err))
-				}
-
-				err = d.reactor.Subscribe(unit.MusicServices.Svc, &upnp.MusicServices{})
-
-				if err != nil {
-					d.log.Errorf(spew.Sprintf("err : %v", err))
-				}
-
-				err = d.reactor.Subscribe(unit.RenderingControl.Svc, &upnp.RenderingControl{})
-
-				if err != nil {
-					d.log.Errorf(spew.Sprintf("err : %v", err))
-				}
 
 				player, err := NewPlayer(d, d.conn, unit)
 

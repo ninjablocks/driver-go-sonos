@@ -253,7 +253,30 @@ func (sp *sonosPlayer) updateState() error {
 	}
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
-	return sp.player.UpdateVolumeState(volume)
+	if sp.player.UpdateVolumeState(volume); err != nil {
+		return err
+	}
+
+	transportInfo, err := sp.GetTransportInfo(defaultInstanceID)
+
+	if err != nil {
+		return err
+	}
+	sp.log.Infof("UpdateControlState PLAYING")
+
+	switch transportInfo.CurrentTransportState {
+	case upnp.State_PLAYING:
+		sp.log.Infof("UpdateControlState PLAYING")
+		return sp.player.UpdateControlState(channels.MediaControlEventPlaying)
+	case upnp.State_STOPPED:
+		sp.log.Infof("UpdateControlState STOPPED")
+		return sp.player.UpdateControlState(channels.MediaControlEventStopped)
+	case upnp.State_PAUSED_PLAYBACK:
+		sp.log.Infof("UpdateControlState PAUSED")
+		return sp.player.UpdateControlState(channels.MediaControlEventPaused)
+	}
+
+	return nil
 }
 
 func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Sonos) (*sonosPlayer, error) {
