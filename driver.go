@@ -62,7 +62,7 @@ func StartSonosDriver() {
 			// because event is a big ball of string it is easier to just iterate over all players
 			// and update them all when an event occurs
 			for id := range d.players {
-				d.log.Infof("Updating %s", %s)
+				d.log.Infof("Updating %s", id)
 				d.players[id].updateState()
 			}
 
