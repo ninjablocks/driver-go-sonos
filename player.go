@@ -220,10 +220,9 @@ func (sp *sonosPlayer) updateMedia() error {
 
 func (sp *sonosPlayer) updateState() error {
 
-	err := sp.updateMedia()
-
-	if err != nil {
-		return fmt.Errorf("Failed to update current media: %s", err)
+	sp.log.Infof("updateMedia")
+	if err := sp.updateMedia(); err != nil {
+		return err
 	}
 
 	muted, err := sp.GetMute(defaultInstanceID, upnp.Channel_Master)
@@ -233,7 +232,7 @@ func (sp *sonosPlayer) updateState() error {
 	}
 
 	sp.log.Infof("UpdateMutedState %t", muted)
-	if sp.player.UpdateMutedState(muted); err != nil {
+	if err := sp.player.UpdateMutedState(muted); err != nil {
 		return err
 	}
 
@@ -253,7 +252,7 @@ func (sp *sonosPlayer) updateState() error {
 	}
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
-	if sp.player.UpdateVolumeState(volume); err != nil {
+	if err := sp.player.UpdateVolumeState(volume); err != nil {
 		return err
 	}
 
@@ -262,7 +261,6 @@ func (sp *sonosPlayer) updateState() error {
 	if err != nil {
 		return err
 	}
-	sp.log.Infof("UpdateControlState PLAYING")
 
 	switch transportInfo.CurrentTransportState {
 	case upnp.State_PLAYING:
