@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"math"
 	"regexp"
 	"time"
 
@@ -256,8 +257,11 @@ func (sp *sonosPlayer) updateState() error {
 		volume = float64(vol) / 100
 	} else {
 		volume = float64(0)
-
 	}
+
+	//TEMP: Double the volume because we're halving it for a demo
+	volume *= 2
+	volume = math.Min(1, volume)
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
 	if err := sp.player.UpdateVolumeState(volume); err != nil {
