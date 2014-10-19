@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/ninjasphere/go-ninja/api"
 	"github.com/ninjasphere/go-ninja/logger"
 	"github.com/ninjasphere/go-ninja/model"
@@ -22,6 +24,7 @@ type sonosDriver struct {
 	players   map[ssdp.UUID]*sonosPlayer
 	conn      *ninja.Connection
 	reactor   upnp.Reactor
+	ticker    *time.Ticker
 	sendEvent func(event string, payload interface{}) error
 }
 
@@ -85,40 +88,57 @@ func StartSonosDriver() {
 
 func (d *sonosDriver) Start(config *SonosConfig) error {
 	d.log.Infof("Starting")
+
+	if d.ticker != nil {
+		d.ticker.Stop()
+	}
+
+	d.ticker = time.NewTicker(time.Second * 30)
+
 	go d.discover()
 	return nil
 }
 
+// S
 func (d *sonosDriver) Stop() error {
 	// TODO: Doesn't aactually stop the devices? Should it?
+
+	if d.ticker != nil {
+		d.ticker.Stop()
+	}
+
 	return nil
 }
 
 func (d *sonosDriver) discover() {
 
-	zonePlayers, err := d.discoverZonePlayers()
+	for t := range d.ticker.C {
+		d.log.Infof("Detecting new players at %s", t)
 
-	if err != nil {
-		d.log.Warningf("Failed to discover ZonePlayers: %s", err)
-	} else {
-		for uuid, device := range zonePlayers {
-			if _, ok := d.players[uuid]; !ok {
+		zonePlayers, err := d.discoverZonePlayers()
 
-				//spew.Dump(device)
+		if err != nil {
+			d.log.Warningf("Failed to discover ZonePlayers: %s", err)
+		} else {
+			for uuid, device := range zonePlayers {
+				if _, ok := d.players[uuid]; !ok {
 
-				unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
-				//spew.Dump(unit)
+					//spew.Dump(device)
+					unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
+					//spew.Dump(unit)
 
-				player, err := NewPlayer(d, d.conn, unit)
+					player, err := NewPlayer(d, d.conn, unit)
 
-				if err != nil {
+					if err != nil {
 
-				} else {
-					d.players[uuid] = player
+					} else {
+						d.players[uuid] = player
+					}
+
 				}
-
 			}
 		}
+
 	}
 
 }
@@ -138,6 +158,8 @@ func (d *sonosDriver) discoverZonePlayers() (zonePlayers ssdp.DeviceMap, err err
 			zonePlayers[uuid] = device
 		}
 	}
+
+	mgr.Close()
 
 	return
 }
