@@ -72,31 +72,28 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 	return sp.Next(defaultInstanceID)
 }
 
-func (sp *sonosPlayer) applyVolume(volume float64) error {
-	sp.log.Infof("applyVolume called, volume %f", volume)
+func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
+	sp.log.Infof("applyVolume called, volume %v", volume)
 
-	vol := uint16(volume * 100)
+	if volume.Level != nil {
+		vol := uint16(*volume.Level * 100)
 
-	// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
-	vol = vol / 2
+		// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
+		vol = vol / 2
 
-	err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
+		if err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol); err != nil {
+			return err
+		}
+	}
 
-	if err != nil {
-		return err
+	if volume.Muted != nil {
+
+		if err := sp.SetMute(defaultInstanceID, upnp.Channel_Master, *volume.Muted); err != nil {
+			return err
+		}
 	}
 
 	return sp.player.UpdateVolumeState(volume)
-}
-
-func (sp *sonosPlayer) applyMuted(muted bool) error {
-	err := sp.SetMute(defaultInstanceID, upnp.Channel_Master, muted)
-
-	if err != nil {
-		return err
-	}
-
-	return sp.player.UpdateMutedState(muted)
 }
 
 func (sp *sonosPlayer) applyPlayURL(url string, queue bool) error {
@@ -109,7 +106,6 @@ func (sp *sonosPlayer) bindMethods() error {
 	sp.player.ApplyStop = sp.applyStop
 	sp.player.ApplyPlaylistJump = sp.applyPlaylistJump
 	sp.player.ApplyVolume = sp.applyVolume
-	sp.player.ApplyMuted = sp.applyMuted
 	sp.player.ApplyPlayURL = sp.applyPlayURL
 
 	err := sp.player.EnableControlChannel([]string{
@@ -122,7 +118,7 @@ func (sp *sonosPlayer) bindMethods() error {
 		return err
 	}
 
-	err = sp.player.EnableVolumeChannel()
+	err = sp.player.EnableVolumeChannel(true)
 	if err != nil {
 		return err
 	}
@@ -240,11 +236,6 @@ func (sp *sonosPlayer) updateState() error {
 		return err
 	}
 
-	sp.log.Infof("UpdateMutedState %t", muted)
-	if err := sp.player.UpdateMutedState(muted); err != nil {
-		return err
-	}
-
 	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
 
 	if err != nil {
@@ -264,7 +255,10 @@ func (sp *sonosPlayer) updateState() error {
 	volume = math.Min(1, volume)
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
-	if err := sp.player.UpdateVolumeState(volume); err != nil {
+	if err := sp.player.UpdateVolumeState(&channels.VolumeState{
+		Level: &volume,
+		Muted: &muted,
+	}); err != nil {
 		return err
 	}
 
