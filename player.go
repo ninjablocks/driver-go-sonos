@@ -72,10 +72,10 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 	return sp.Next(defaultInstanceID)
 }
 
-func (sp *sonosPlayer) applyVolume(volume float64) error {
+func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
 	sp.log.Infof("applyVolume called, volume %f", volume)
 
-	vol := uint16(volume * 100)
+	vol := uint16(*volume.Level * 100)
 
 	// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
 	vol = vol / 2
@@ -86,17 +86,13 @@ func (sp *sonosPlayer) applyVolume(volume float64) error {
 		return err
 	}
 
-	return sp.player.UpdateVolumeState(volume)
-}
-
-func (sp *sonosPlayer) applyMuted(muted bool) error {
-	err := sp.SetMute(defaultInstanceID, upnp.Channel_Master, muted)
+	err = sp.SetMute(defaultInstanceID, upnp.Channel_Master, *volume.Muted)
 
 	if err != nil {
 		return err
 	}
 
-	return sp.player.UpdateMutedState(muted)
+	return sp.player.UpdateVolumeState(volume)
 }
 
 func (sp *sonosPlayer) applyPlayURL(url string, queue bool) error {
@@ -109,7 +105,6 @@ func (sp *sonosPlayer) bindMethods() error {
 	sp.player.ApplyStop = sp.applyStop
 	sp.player.ApplyPlaylistJump = sp.applyPlaylistJump
 	sp.player.ApplyVolume = sp.applyVolume
-	sp.player.ApplyMuted = sp.applyMuted
 	sp.player.ApplyPlayURL = sp.applyPlayURL
 
 	err := sp.player.EnableControlChannel([]string{
@@ -122,7 +117,7 @@ func (sp *sonosPlayer) bindMethods() error {
 		return err
 	}
 
-	err = sp.player.EnableVolumeChannel()
+	err = sp.player.EnableVolumeChannel(true)
 	if err != nil {
 		return err
 	}
@@ -159,7 +154,7 @@ func (sp *sonosPlayer) updateMedia() error {
 
 	positionInfo, err := sp.GetPositionInfo(0)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed getting position info: %s", err)
 	}
 
 	if positionInfo.TrackMetaData == "" {
@@ -168,60 +163,70 @@ func (sp *sonosPlayer) updateMedia() error {
 		return err
 	}
 
-	duration, err := parseDuration(positionInfo.TrackDuration)
-	if err != nil {
-		return err
+	track := &channels.MusicTrackMediaItem{
+		ID: &positionInfo.TrackURI,
 	}
 
-	durationMs := int(*duration / time.Millisecond)
+	var positionMs int
 
-	position, err := parseDuration(positionInfo.RelTime)
-	if err != nil {
-		return err
+	if positionInfo.TrackDuration != "NOT_IMPLEMENTED" {
+
+		duration, err := parseDuration(positionInfo.TrackDuration)
+		if err != nil {
+			return fmt.Errorf("Failed parsing duration: %s", err)
+		}
+
+		durationMs := int(*duration / time.Millisecond)
+		track.Duration = &durationMs
 	}
 
-	positionMs := int(*position / time.Millisecond)
+	if positionInfo.RelTime != "NOT_IMPLEMENTED" {
+		position, err := parseDuration(positionInfo.RelTime)
+		if err != nil {
+			return fmt.Errorf("Failed parsing position: %s", err)
+		}
+
+		positionMs = int(*position / time.Millisecond)
+	}
 
 	var trackMetadata didl.Lite
 
-	err = xml.Unmarshal([]byte(positionInfo.TrackMetaData), &trackMetadata)
-	if err != nil {
-		return err
-	}
+	if positionInfo.TrackMetaData != "NOT_IMPLEMENTED" {
 
-	//sp.log.Infof(spew.Sdump("DIDL", trackMetadata))
-
-	track := &channels.MusicTrackMediaItem{
-		ID:       &positionInfo.TrackURI,
-		Duration: &durationMs,
-	}
-
-	if len(trackMetadata.Item) > 0 {
-		item := trackMetadata.Item[0]
-
-		if len(item.Title) > 0 {
-			track.Title = &item.Title[0].Value
+		err = xml.Unmarshal([]byte(positionInfo.TrackMetaData), &trackMetadata)
+		if err != nil {
+			return fmt.Errorf("Failed unmarshalling metadata(%s): %s", positionInfo.TrackMetaData, err)
 		}
 
-		if len(item.Album) > 0 {
-			track.Album = &channels.MediaItemAlbum{
-				Name: item.Album[0].Value,
+		//sp.log.Infof(spew.Sdump("DIDL", trackMetadata))
+
+		if len(trackMetadata.Item) > 0 {
+			item := trackMetadata.Item[0]
+
+			if len(item.Title) > 0 {
+				track.Title = &item.Title[0].Value
 			}
-		}
 
-		if len(item.Creator) > 0 {
-			track.Artists = &[]channels.MediaItemArtist{
-				channels.MediaItemArtist{
-					Name: item.Creator[0].Value,
-				},
+			if len(item.Album) > 0 {
+				track.Album = &channels.MediaItemAlbum{
+					Name: item.Album[0].Value,
+				}
 			}
-		}
 
+			if len(item.Creator) > 0 {
+				track.Artists = &[]channels.MediaItemArtist{
+					channels.MediaItemArtist{
+						Name: item.Creator[0].Value,
+					},
+				}
+			}
+
+		}
 	}
 
 	err = sp.player.UpdateMusicMediaState(track, &positionMs)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed sending media state: %s", err)
 	}
 
 	return nil
@@ -231,24 +236,19 @@ func (sp *sonosPlayer) updateState() error {
 
 	sp.log.Infof("updateMedia")
 	if err := sp.updateMedia(); err != nil {
-		return err
+		return fmt.Errorf("Failed to update media state: %s", err)
 	}
 
 	muted, err := sp.GetMute(defaultInstanceID, upnp.Channel_Master)
 
 	if err != nil {
-		return err
-	}
-
-	sp.log.Infof("UpdateMutedState %t", muted)
-	if err := sp.player.UpdateMutedState(muted); err != nil {
-		return err
+		return fmt.Errorf("Failed to get mute: %s", err)
 	}
 
 	vol, err := sp.GetVolume(defaultInstanceID, upnp.Channel_Master)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to get volume: %s", err)
 	}
 
 	var volume float64
@@ -264,7 +264,7 @@ func (sp *sonosPlayer) updateState() error {
 	volume = math.Min(1, volume)
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
-	if err := sp.player.UpdateVolumeState(volume); err != nil {
+	if err := sp.player.UpdateVolumeState(&channels.VolumeState{&volume, &muted}); err != nil {
 		return err
 	}
 
@@ -299,7 +299,7 @@ func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Son
 	nlog.Infof("Making media player with ID: %s Label: %s", id, name)
 
 	player, err := devices.CreateMediaPlayerDevice(driver, &model.Device{
-		NaturalID:     id,
+		NaturalID:     id + "-" + name,
 		NaturalIDType: "sonos",
 		Name:          &name,
 		Signatures: &map[string]string{
@@ -324,7 +324,7 @@ func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Son
 	err = sp.updateState()
 
 	if err != nil {
-		sp.log.FatalError(err, "Failed to create media player device bus")
+		sp.log.FatalError(err, "Failed to get initial device state")
 	}
 
 	return sp, nil
