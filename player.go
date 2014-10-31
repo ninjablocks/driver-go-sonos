@@ -73,23 +73,25 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 }
 
 func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
-	sp.log.Infof("applyVolume called, volume %f", volume)
 
-	vol := uint16(*volume.Level * 100)
+	sp.log.Infof("applyVolume called, volume %v", volume)
 
-	// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
-	vol = vol / 2
+	if volume.Level != nil {
+		vol := uint16(*volume.Level * 100)
 
-	err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol)
+		// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
+		vol = vol / 2
 
-	if err != nil {
-		return err
+		if err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol); err != nil {
+			return err
+		}
 	}
 
-	err = sp.SetMute(defaultInstanceID, upnp.Channel_Master, *volume.Muted)
+	if volume.Muted != nil {
 
-	if err != nil {
-		return err
+		if err := sp.SetMute(defaultInstanceID, upnp.Channel_Master, *volume.Muted); err != nil {
+			return err
+		}
 	}
 
 	return sp.player.UpdateVolumeState(volume)
@@ -264,7 +266,11 @@ func (sp *sonosPlayer) updateState() error {
 	volume = math.Min(1, volume)
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
-	if err := sp.player.UpdateVolumeState(&channels.VolumeState{&volume, &muted}); err != nil {
+
+	if err := sp.player.UpdateVolumeState(&channels.VolumeState{
+		Level: &volume,
+		Muted: &muted,
+	}); err != nil {
 		return err
 	}
 
