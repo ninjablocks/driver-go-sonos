@@ -113,7 +113,7 @@ func (d *sonosDriver) Stop() error {
 func (d *sonosDriver) discover() {
 
 	for t := range d.ticker.C {
-		d.log.Infof("Detecting new players at %s", t)
+		d.log.Debugf("Detecting new players at %s", t)
 
 		zonePlayers, err := d.discoverZonePlayers()
 
