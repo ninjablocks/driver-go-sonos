@@ -1,0 +1,2 @@
+/opt/ninjablocks/bin/nservice -q driver-go-sonos stop || true
+/opt/ninjablocks/bin/nservice -q driver-go-sonos start || true
