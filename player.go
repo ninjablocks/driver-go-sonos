@@ -79,9 +79,6 @@ func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
 	if volume.Level != nil {
 		vol := uint16(*volume.Level * 100)
 
-		// XXX: HALVING THE VOLUME BECAUSE DAN IS AN OLD MAN
-		vol = vol / 2
-
 		if err := sp.SetVolume(defaultInstanceID, upnp.Channel_Master, vol); err != nil {
 			return err
 		}
@@ -261,8 +258,6 @@ func (sp *sonosPlayer) updateState() error {
 		volume = float64(0)
 	}
 
-	//TEMP: Double the volume because we're halving it for a demo
-	volume *= 2
 	volume = math.Min(1, volume)
 
 	sp.log.Infof("UpdateVolumeState %d  %f", vol, volume)
