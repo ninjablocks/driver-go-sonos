@@ -22,13 +22,18 @@ const (
 	defaultSpeed      = "1"
 )
 
-type sonosPlayer struct {
+type sonosZonePlayer struct {
 	*sonos.Sonos
-	log    *logger.Logger
-	player *devices.MediaPlayerDevice
+	log      *logger.Logger
+	player   *devices.MediaPlayerDevice
+	lastSeen time.Time
 }
 
-func (sp *sonosPlayer) applyPlayPause(playing bool) error {
+func (sp *sonosZonePlayer) UpdateLastSeen() {
+	sp.lastSeen = time.Now()
+}
+
+func (sp *sonosZonePlayer) applyPlayPause(playing bool) error {
 
 	sp.log.Infof("applyPlayPause called, playing: %t", playing)
 
@@ -52,7 +57,7 @@ func (sp *sonosPlayer) applyPlayPause(playing bool) error {
 	return sp.player.UpdateControlState(channels.MediaControlEventPaused)
 }
 
-func (sp *sonosPlayer) applyStop() error {
+func (sp *sonosZonePlayer) applyStop() error {
 	sp.log.Infof("applyStop called")
 
 	err := sp.Stop(defaultInstanceID)
@@ -64,7 +69,7 @@ func (sp *sonosPlayer) applyStop() error {
 	return sp.player.UpdateControlState(channels.MediaControlEventStopped)
 }
 
-func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
+func (sp *sonosZonePlayer) applyPlaylistJump(delta int) error {
 	sp.log.Infof("applyPlaylistJump called, delta : %d", delta)
 	if delta < 0 {
 		return sp.Previous(defaultInstanceID)
@@ -72,7 +77,7 @@ func (sp *sonosPlayer) applyPlaylistJump(delta int) error {
 	return sp.Next(defaultInstanceID)
 }
 
-func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
+func (sp *sonosZonePlayer) applyVolume(volume *channels.VolumeState) error {
 
 	sp.log.Infof("applyVolume called, volume %v", volume)
 
@@ -94,11 +99,11 @@ func (sp *sonosPlayer) applyVolume(volume *channels.VolumeState) error {
 	return sp.player.UpdateVolumeState(volume)
 }
 
-func (sp *sonosPlayer) applyPlayURL(url string, queue bool) error {
+func (sp *sonosZonePlayer) applyPlayURL(url string, queue bool) error {
 	return fmt.Errorf("Playing a URL has not been implemented yet.")
 }
 
-func (sp *sonosPlayer) bindMethods() error {
+func (sp *sonosZonePlayer) bindMethods() error {
 
 	sp.player.ApplyPlayPause = sp.applyPlayPause
 	sp.player.ApplyStop = sp.applyStop
@@ -148,7 +153,7 @@ func parseDuration(t string) (*time.Duration, error) {
 	return &duration, nil
 }
 
-func (sp *sonosPlayer) updateMedia() error {
+func (sp *sonosZonePlayer) updateMedia() error {
 	t := sp.log
 
 	positionInfo, err := sp.GetPositionInfo(0)
@@ -196,9 +201,6 @@ func (sp *sonosPlayer) updateMedia() error {
 		if err != nil {
 			return fmt.Errorf("Failed unmarshalling metadata(%s): %s", positionInfo.TrackMetaData, err)
 		}
-
-		//sp.log.Infof(spew.Sdump("DIDL", trackMetadata))
-
 		if len(trackMetadata.Item) > 0 {
 			item := trackMetadata.Item[0]
 
@@ -231,7 +233,7 @@ func (sp *sonosPlayer) updateMedia() error {
 	return nil
 }
 
-func (sp *sonosPlayer) updateState() error {
+func (sp *sonosZonePlayer) updateState() error {
 
 	sp.log.Infof("updateMedia")
 	if err := sp.updateMedia(); err != nil {
@@ -290,17 +292,15 @@ func (sp *sonosPlayer) updateState() error {
 	return nil
 }
 
-func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Sonos) (*sonosPlayer, error) {
+func NewPlayer(driver *sonosDriver, conn *ninja.Connection, zoneInfo *sonosZoneInfo) (*sonosZonePlayer, error) {
 
-	group, _ := sonosUnit.GetZoneGroupAttributes()
+	id := zoneInfo.attributes.CurrentZoneGroupID
+	name := zoneInfo.attributes.CurrentZoneGroupName
 
-	id := group.CurrentZoneGroupID
-	name := group.CurrentZoneGroupName
-
-	nlog.Infof("Making media player with ID: %s Label: %s", id, name)
+	nlog.Infof("Making media player with ID: %s Label: %s")
 
 	player, err := devices.CreateMediaPlayerDevice(driver, &model.Device{
-		NaturalID:     id + "-" + name,
+		NaturalID:     id,
 		NaturalIDType: "sonos",
 		Name:          &name,
 		Signatures: &map[string]string{
@@ -315,7 +315,11 @@ func NewPlayer(driver *sonosDriver, conn *ninja.Connection, sonosUnit *sonos.Son
 		nlog.FatalError(err, "Failed to create media player device")
 	}
 
-	sp := &sonosPlayer{sonosUnit, logger.GetLogger("sonosPlayer"), player}
+	// At the moment I am using the first player in that zone
+	// i need to know how this looks in a multi player situation.
+	sonosUnit := zoneInfo.players[0]
+
+	sp := &sonosZonePlayer{sonosUnit, logger.GetLogger("sonosZonePlayer"), player, time.Now()}
 
 	err = sp.bindMethods()
 	if err != nil {

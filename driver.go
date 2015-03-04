@@ -21,7 +21,7 @@ var info = ninja.LoadModuleInfo("./package.json")
 type sonosDriver struct {
 	config    *SonosConfig
 	log       *logger.Logger
-	players   map[ssdp.UUID]*sonosPlayer
+	players   map[string]*sonosZonePlayer
 	conn      *ninja.Connection
 	reactor   upnp.Reactor
 	ticker    *time.Ticker
@@ -34,7 +34,7 @@ type SonosConfig struct {
 func StartSonosDriver() {
 	d := &sonosDriver{
 		log:     logger.GetLogger(info.Name),
-		players: make(map[ssdp.UUID]*sonosPlayer),
+		players: make(map[string]*sonosZonePlayer),
 	}
 
 	conn, err := ninja.Connect(info.ID)
@@ -64,9 +64,9 @@ func StartSonosDriver() {
 
 			// because event is a big ball of string it is easier to just iterate over all players
 			// and update them all when an event occurs
-			for id := range d.players {
+			for id, player := range d.players {
 				d.log.Infof("Updating %s", id)
-				d.players[id].updateState()
+				player.updateState()
 			}
 
 			// spew.Dump(event)
@@ -110,40 +110,11 @@ func (d *sonosDriver) Stop() error {
 	return nil
 }
 
-func (d *sonosDriver) discover() {
+// this function searches for players, retrieves their zone information and builds a map of
+// sonos zones keyed on the zones ID.
+func (d *sonosDriver) detectZones() (zoneMap map[string]*sonosZoneInfo, err error) {
 
-	for t := range d.ticker.C {
-		d.log.Debugf("Detecting new players at %s", t)
-
-		zonePlayers, err := d.discoverZonePlayers()
-
-		if err != nil {
-			d.log.Warningf("Failed to discover ZonePlayers: %s", err)
-		} else {
-			for uuid, device := range zonePlayers {
-				if _, ok := d.players[uuid]; !ok {
-
-					//spew.Dump(device)
-					unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
-					//spew.Dump(unit)
-
-					player, err := NewPlayer(d, d.conn, unit)
-
-					if err != nil {
-
-					} else {
-						d.players[uuid] = player
-					}
-
-				}
-			}
-		}
-
-	}
-
-}
-
-func (d *sonosDriver) discoverZonePlayers() (zonePlayers ssdp.DeviceMap, err error) {
+	zoneMap = make(map[string]*sonosZoneInfo)
 
 	d.log.Infof("loading discovery mgr")
 	mgr, err := sonos.Discover(DiscoveryPort)
@@ -152,16 +123,94 @@ func (d *sonosDriver) discoverZonePlayers() (zonePlayers ssdp.DeviceMap, err err
 		return
 	}
 
-	zonePlayers = make(ssdp.DeviceMap)
-	for uuid, device := range mgr.Devices() {
-		if device.Product() == "Sonos" && device.Name() == "ZonePlayer" {
-			zonePlayers[uuid] = device
+	defer mgr.Close()
+
+	zonePlayers := mgr.Devices()
+
+	// build a list of zones and players
+	for _, device := range zonePlayers {
+
+		if !isSonosPlayer(device) {
+			continue
+		}
+
+		unit := sonos.Connect(device, d.reactor, sonos.SVC_RENDERING_CONTROL|sonos.SVC_AV_TRANSPORT|sonos.SVC_ZONE_GROUP_TOPOLOGY|sonos.SVC_MUSIC_SERVICES)
+
+		// god forbid right..
+		if unit == nil {
+			continue // skip this one
+		}
+
+		groupAttr, err := unit.GetZoneGroupAttributes()
+
+		if err != nil {
+			continue // skip this one
+		}
+
+		id := groupAttr.CurrentZoneGroupID
+
+		if zoneMap[id] == nil {
+			zoneMap[id] = &sonosZoneInfo{
+				attributes: groupAttr,
+				players:    []*sonos.Sonos{unit},
+			}
+		} else {
+			// append the player
+			zoneMap[id].players = append(zoneMap[id].players, unit)
+		}
+
+	}
+
+	return
+}
+
+type sonosZoneInfo struct {
+	attributes *upnp.ZoneGroupAttributes
+	players    []*sonos.Sonos
+}
+
+func (d *sonosDriver) discover() {
+
+	for t := range d.ticker.C {
+		d.log.Debugf("Detecting new players at %s", t)
+
+		zoneMap, err := d.detectZones()
+
+		if err != nil {
+			d.log.Warningf("Failed to discover ZonePlayers: %s", err)
+			continue
+		}
+
+		for uuid, zone := range zoneMap {
+
+			// have we seen this player before?
+			if _, ok := d.players[uuid]; !ok {
+
+				player, err := NewPlayer(d, d.conn, zone)
+
+				if err != nil {
+
+				} else {
+					d.players[uuid] = player
+				}
+
+			} else {
+				nlog.Infof("already seen zone player %s", uuid)
+				// update the last seen
+				d.players[uuid].UpdateLastSeen()
+			}
+
+		}
+
+		// detect players that we haven't seen in a while
+		for uuid, v := range d.players {
+			nlog.Debugf("checking last seen %v", uuid)
+			if time.Since(v.lastSeen) > (60 * time.Second) {
+				nlog.Warningf("zone player %v is OFFLINE", uuid)
+			}
 		}
 	}
 
-	mgr.Close()
-
-	return
 }
 
 func (d *sonosDriver) GetModuleInfo() *model.Module {
@@ -170,4 +219,8 @@ func (d *sonosDriver) GetModuleInfo() *model.Module {
 
 func (d *sonosDriver) SetEventHandler(sendEvent func(event string, payload interface{}) error) {
 	d.sendEvent = sendEvent
+}
+
+func isSonosPlayer(device ssdp.Device) bool {
+	return device.Product() == "Sonos" && device.Name() == "ZonePlayer"
 }
