@@ -60,16 +60,16 @@ func StartSonosDriver() {
 		d.log.Infof("waiting for events.")
 
 		for {
-			_ = <-events
+			event := <-events
+
+			d.log.Infof("processing event %T", event)
 
 			// because event is a big ball of string it is easier to just iterate over all players
 			// and update them all when an event occurs
 			for id, player := range d.players {
-				d.log.Infof("Updating %s", id)
+				d.log.Infof("Updating state for %s", id)
 				player.updateState()
 			}
-
-			// spew.Dump(event)
 
 			// switch v := event.(type) {
 			// case upnp.RenderingControlEvent:
@@ -207,6 +207,7 @@ func (d *sonosDriver) discover() {
 			nlog.Debugf("checking last seen %v", uuid)
 			if time.Since(v.lastSeen) > (60 * time.Second) {
 				nlog.Warningf("zone player %v is OFFLINE", uuid)
+				// TODO publish a notification on a channel that the device is OFFLINE atm
 			}
 		}
 	}
