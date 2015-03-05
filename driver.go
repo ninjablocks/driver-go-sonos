@@ -62,13 +62,17 @@ func StartSonosDriver() {
 		for {
 			event := <-events
 
-			d.log.Infof("processing event %T", event)
+			switch v := event.(type) {
+			case upnp.MusicServicesEvent: // this cuts down the events by a factor of 4
+				d.log.Infof("processing event %T", v)
 
-			// because event is a big ball of string it is easier to just iterate over all players
-			// and update them all when an event occurs
-			for id, player := range d.players {
-				d.log.Infof("Updating state for %s", id)
-				player.updateState()
+				// because event is a big ball of string it is easier to just iterate over all players
+				// and update them all when an event occurs
+				for id, player := range d.players {
+					d.log.Infof("Updating state for %s", id)
+					player.updateState()
+				}
+
 			}
 
 			// switch v := event.(type) {
