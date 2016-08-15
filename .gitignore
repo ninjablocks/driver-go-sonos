@@ -6,3 +6,4 @@ sphere-config
 pkg/
 .AppleDouble
 .DS_Store
+vendor/
